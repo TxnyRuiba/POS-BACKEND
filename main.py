@@ -37,7 +37,7 @@ def read_root():
 @app.post("/api/login")
 def login(data: schemas.LoginRequest, db: Session = Depends(get_db)):
     User = db.query(User).filter(User.Username == data.Username).first()
-    if not User or not bcrypt.checkpw(data.password.encode("utf-8"), User.password.encode("utf-8")):
+    if not User or not bcrypt.checkpw(data.Password.encode("utf-8"), User.Password.encode("utf-8")):
         raise HTTPException(status_code=401, detail="Usuario o contraseña incorrectos")
     return {"username": User.Username}
 
@@ -47,8 +47,8 @@ def register(data: schemas.RegisterRequest, db: Session = Depends(get_db)):
     if existing:
         raise HTTPException(status_code=400, detail="El usuario ya existe")
 
-    hashed_password = bcrypt.hashpw(data.password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
-    new_User = User(Username=data.Username, password=hashed_password)
+    hashed_Password = bcrypt.hashpw(data.Password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+    new_User = User(Username=data.Username, Password=hashed_Password)
 
     db.add(new_User)
     db.commit()

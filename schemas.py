@@ -2,11 +2,11 @@ from pydantic import BaseModel
 
 class LoginRequest(BaseModel):
     Username: str
-    password: str
+    Password: str
 
 class RegisterRequest(BaseModel):
     Username: str
-    password: str
+    Password: str
 
 class ProductoSchema(BaseModel):
     Id: int

@@ -5,8 +5,8 @@ from models import User
 def get_user_by_Username(db: Session, Username: str):
     return db.query(User).filter(User.Username == Username).first()
 
-def create_user(db: Session,Username: str, password: str):
-    new_user = User(Username=Username, password=password)
+def create_user(db: Session,Username: str, Password: str):
+    new_user = User(Username=Username, Password=Password)
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
