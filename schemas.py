@@ -16,11 +16,11 @@ class RegisterRequest(BaseModel):
         populate_by_name = True
 
 class UserSchema(BaseModel):
-    id: int
+    id: int = Field(..., alias="ID")   # 🔧 CAMBIO: alias para columna ID
     username: str = Field(..., alias="Username")
 
     class Config:
-        from_attributes = True   # 🔧 CAMBIO: reemplaza orm_mode
+        from_attributes = True   # Pydantic v2 reemplaza orm_mode
         populate_by_name = True
 
 class ProductoSchema(BaseModel):

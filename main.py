@@ -43,7 +43,6 @@ def login(data: schemas.LoginRequest, db: Session = Depends(get_db)):
 
 @app.post("/api/register")
 def register(data: schemas.RegisterRequest, db: Session = Depends(get_db)):
-    # 🔧 CAMBIO: usar data.username y data.password
     existing = db.query(Users).filter(Users.Username == data.username).first()
     if existing:
         raise HTTPException(status_code=400, detail="El usuario ya existe")
