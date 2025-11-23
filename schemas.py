@@ -1,12 +1,27 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 class LoginRequest(BaseModel):
-    Username: str
-    Password: str
+    username: str = Field(..., alias="Username")
+    password: str = Field(..., alias="Password")
+
+    class Config:
+        populate_by_name = True
+
 
 class RegisterRequest(BaseModel):
-    Username: str
-    Password: str
+    username: str = Field(..., alias="Username")
+    password: str = Field(..., alias="Password")
+
+    class Config:
+        populate_by_name = True
+
+class UserSchema(BaseModel):
+    id: int
+    username: str = Field(..., alias="Username")
+
+    class Config:
+        from_attributes = True   # 🔧 CAMBIO: reemplaza orm_mode
+        populate_by_name = True
 
 class ProductoSchema(BaseModel):
     Id: int

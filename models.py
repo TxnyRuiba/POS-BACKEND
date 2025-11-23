@@ -1,12 +1,13 @@
 from sqlalchemy import Column, Integer, String, Float
 from database import Base
 
-class User(Base):
+class Users(Base):
     __tablename__ = "Users"
 
-    ID = Column(Integer, primary_key=True, index=True)  # autoincrement automático
+    ID = Column(Integer, primary_key=True, index=True, autoincrement=True)
     Username = Column(String, unique=True, index=True, nullable=False)
     Password = Column(String, nullable=False)
+
 
 class Product(Base):
     __tablename__ = "Master_Data"

@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 import bcrypt
 
 from database import SessionLocal, engine
-from models import Base, User, Product
+from models import Base, Users, Product
 import crud
 import schemas  # Importamos los esquemas   
 
@@ -36,25 +36,26 @@ def read_root():
 
 @app.post("/api/login")
 def login(data: schemas.LoginRequest, db: Session = Depends(get_db)):
-    User = db.query(User).filter(User.Username == data.Username).first()
-    if not User or not bcrypt.checkpw(data.Password.encode("utf-8"), User.Password.encode("utf-8")):
+    user = db.query(Users).filter(Users.Username == data.username).first()
+    if not user or not bcrypt.checkpw(data.password.encode("utf-8"), user.Password.encode("utf-8")):
         raise HTTPException(status_code=401, detail="Usuario o contraseña incorrectos")
-    return {"username": User.Username}
+    return {"username": user.Username}
 
 @app.post("/api/register")
 def register(data: schemas.RegisterRequest, db: Session = Depends(get_db)):
-    existing = db.query(User).filter(User.Username == data.Username).first()
+    # 🔧 CAMBIO: usar data.username y data.password
+    existing = db.query(Users).filter(Users.Username == data.username).first()
     if existing:
         raise HTTPException(status_code=400, detail="El usuario ya existe")
 
-    hashed_Password = bcrypt.hashpw(data.Password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
-    new_User = User(Username=data.Username, Password=hashed_Password)
+    hashed_password = bcrypt.hashpw(data.password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+    new_user = Users(Username=data.username, Password=hashed_password)
 
-    db.add(new_User)
+    db.add(new_user)
     db.commit()
-    db.refresh(new_User)
+    db.refresh(new_user)
 
-    return schemas.UserSchema.from_orm(new_User)
+    return schemas.UserSchema.from_orm(new_user)
 
 @app.get("/api/productos", response_model=list[schemas.ProductoSchema])
 def obtener_productos(db: Session = Depends(get_db)):

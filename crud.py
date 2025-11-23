@@ -1,12 +1,12 @@
 from sqlalchemy.orm import Session
 from models import Product
-from models import User
+from models import Users
 
 def get_user_by_Username(db: Session, Username: str):
-    return db.query(User).filter(User.Username == Username).first()
+    return db.query(Users).filter(Users.Username == Username).first()
 
 def create_user(db: Session,Username: str, Password: str):
-    new_user = User(Username=Username, Password=Password)
+    new_user = Users(Username=Username, Password=Password)
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
