@@ -7,15 +7,15 @@ class LoginRequest(BaseModel):
 class RegisterRequest(BaseModel):
     username: str
     password: str
-    
+
 class ProductoSchema(BaseModel):
-    id: int
-    name: str
-    price: float
-    image: str
-    category: str
-    code: str
-    unit: str
+    Id: int
+    Product: str
+    Irice: float
+    #image: str
+    Category: str
+    Code: str
+    Unit: str
 
     class Config:
         orm_mode = True

@@ -2,19 +2,21 @@ from sqlalchemy import Column, Integer, String, Float
 from database import Base
 
 class User(Base):
-    __tablename__ = "users"
+    __tablename__ = "Users"
 
     id = Column(Integer, primary_key=True, index=True)  # autoincrement automático
     username = Column(String, unique=True, index=True, nullable=False)
     password = Column(String, nullable=False)
 
-class Producto(Base):
-    __tablename__ = "productos"
+class Product(Base):
+    __tablename__ = "Master_Data"
 
-    id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, nullable=False)
-    price = Column(Float, nullable=False)
-    image = Column(String)
-    category = Column(String)
-    code = Column(String)
-    unit = Column(String)
+    Id = Column(Integer, primary_key=True, index=True)
+    Code = Column(Integer, unique=True, index=True)        # antes "Code"
+    Barcode = Column(String, nullable=True)                # antes "Barcode"
+    Product = Column(String, nullable=False)               # antes "Product"
+    Category = Column(String, nullable=True)               # antes "Category"
+    Unit = Column(String, nullable=True)                   # antes "Units"
+    Price = Column(Float, nullable=False)                  # antes "Price"
+    Stock = Column(Float, nullable=False)                  # antes "Stock"
+    Min_stock = Column(Integer, nullable=False)            # antes "Min_Stock"

@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 import bcrypt
 
 from database import SessionLocal, engine
-from models import Base, User, Producto
+from models import Base, User, Product
 import crud
 import schemas  # Importamos los esquemas   
 
@@ -65,5 +65,5 @@ def obtener_productos_por_categoria(categoria: str, db: Session = Depends(get_db
     return crud.obtener_productos_por_categoria(db, categoria)
 
 @app.post("/api/productos", response_model=schemas.ProductoSchema)
-def crear_producto(producto: schemas.ProductoSchema, db: Session = Depends(get_db)):
-    return crud.crear_producto(db, producto)
+def crear_product(product: schemas.ProductoSchema, db: Session = Depends(get_db)):
+    return crud.crear_product(db, product)
