@@ -4,9 +4,9 @@ from database import Base
 class User(Base):
     __tablename__ = "Users"
 
-    id = Column(Integer, primary_key=True, index=True)  # autoincrement automático
-    username = Column(String, unique=True, index=True, nullable=False)
-    password = Column(String, nullable=False)
+    ID = Column(Integer, primary_key=True, index=True)  # autoincrement automático
+    Username = Column(String, unique=True, index=True, nullable=False)
+    Password = Column(String, nullable=False)
 
 class Product(Base):
     __tablename__ = "Master_Data"

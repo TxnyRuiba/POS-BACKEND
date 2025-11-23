@@ -36,25 +36,25 @@ def read_root():
 
 @app.post("/api/login")
 def login(data: schemas.LoginRequest, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.username == data.username).first()
-    if not user or not bcrypt.checkpw(data.password.encode("utf-8"), user.password.encode("utf-8")):
+    User = db.query(User).filter(User.Username == data.Username).first()
+    if not User or not bcrypt.checkpw(data.password.encode("utf-8"), User.password.encode("utf-8")):
         raise HTTPException(status_code=401, detail="Usuario o contraseña incorrectos")
-    return {"username": user.username}
+    return {"username": User.Username}
 
 @app.post("/api/register")
 def register(data: schemas.RegisterRequest, db: Session = Depends(get_db)):
-    existing = db.query(User).filter(User.username == data.username).first()
+    existing = db.query(User).filter(User.Username == data.Username).first()
     if existing:
         raise HTTPException(status_code=400, detail="El usuario ya existe")
 
     hashed_password = bcrypt.hashpw(data.password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
-    new_user = User(username=data.username, password=hashed_password)
+    new_User = User(Username=data.Username, password=hashed_password)
 
-    db.add(new_user)
+    db.add(new_User)
     db.commit()
-    db.refresh(new_user)
+    db.refresh(new_User)
 
-    return schemas.UserSchema.from_orm(new_user)
+    return schemas.UserSchema.from_orm(new_User)
 
 @app.get("/api/productos", response_model=list[schemas.ProductoSchema])
 def obtener_productos(db: Session = Depends(get_db)):
