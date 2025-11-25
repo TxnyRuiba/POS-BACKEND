@@ -1,4 +1,5 @@
-from pydantic import BaseModel, Field
+from datetime import datetime
+from pydantic import BaseModel, Field, ConfigDict
 
 class LoginRequest(BaseModel):
     username: str = Field(..., alias="Username")
@@ -40,3 +41,37 @@ class ProductoSchema(BaseModel):
 
 class StockUpdate(BaseModel):
     nuevo_stock: int
+
+#Carrito
+
+class CartCreate(BaseModel):
+    # opcional carritos “vacíos”
+    pass
+
+class AddItemRequest(BaseModel):
+    product_id: int | None = None
+    code: str | None = None
+    barcode: str | None = None
+    quantity: float = 1.0
+
+class CartItemSchema(BaseModel):
+    id: int
+    product_id: int
+    product_name: str
+    price: float
+    quantity: float
+    subtotal: float
+
+    class Config:
+        from_attributes = True
+
+class CartSchema(BaseModel):
+    id: int
+    status: str
+    created_at: datetime | None
+    items: list[CartItemSchema] = []
+    total: float | None = None
+
+    model_config = ConfigDict(
+        from_attributes=True,
+    )

@@ -2,6 +2,8 @@ from sqlalchemy.orm import Session
 from models import Product
 from models import Users
 from schemas import ProductoSchema
+from models import Cart, CartItem, Product
+from sqlalchemy import cast, String
 
 def get_user_by_Username(db: Session, Username: str):
     return db.query(Users).filter(Users.Username == Username).first()
@@ -70,3 +72,55 @@ def resumen_inventario(db: Session):
         "StockNormal": normal,
         "Categorias": categorias
     }
+
+def crear_carrito(db: Session) -> Cart: #inicia Venta
+    cart = Cart()
+    db.add(cart)
+    db.commit()
+    db.refresh(cart)
+    return cart
+
+def obtener_carrito(db: Session, cart_id: int) -> Cart | None: #Ver el estado actual del carrito
+    return db.query(Cart).filter(Cart.id == cart_id).first()
+
+def buscar_producto(db: Session, product_id=None, code=None, barcode=None) -> Product | None: #Localizar producto o articulo seleccionado
+    q = db.query(Product)
+    if product_id:
+        return q.filter(Product.Id == product_id).first()
+    if code:
+        return q.filter(cast(Product.Code, String).ilike(f"%{code}%")).first()
+    if barcode:
+        return q.filter(cast(Product.Barcode, String).ilike(f"%{barcode}%")).first()
+    return None
+
+def agregar_item(db: Session, cart_id: int, product: Product, quantity: float) -> CartItem:
+    subtotal = float(product.Price) * float(quantity)
+    item = CartItem(
+        cart_id=cart_id,
+        product_id=product.Id,
+        product_name=product.Product,
+        price=float(product.Price),
+        quantity=float(quantity),
+        subtotal=subtotal,
+    )
+    db.add(item)
+    db.commit()
+    db.refresh(item)
+    return item
+
+def actualizar_item(db: Session, item_id: int, quantity: float) -> CartItem | None:
+    item = db.query(CartItem).filter(CartItem.id == item_id).first()
+    if not item:
+        return None
+    item.quantity = float(quantity)
+    item.subtotal = float(item.price) * float(item.quantity)
+    db.commit()
+    db.refresh(item)
+    return item
+
+def resumen_carrito(db: Session, cart_id: int) -> dict | None:
+    cart = db.query(Cart).filter(Cart.id == cart_id).first()
+    if not cart:
+        return None
+    total = sum(i.subtotal for i in cart.items)
+    return {"cart": cart, "total": float(total)}

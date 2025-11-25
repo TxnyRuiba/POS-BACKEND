@@ -105,3 +105,36 @@ def resumen_inventario(db: Session = Depends(get_db)):
         "StockNormal": normal,
         "Categorias": categorias
     }
+#Crear Carrito
+@app.post("/api/pos/carritos", response_model=schemas.CartSchema)
+def crear_carrito_endpoint(db: Session = Depends(get_db)):
+    cart = crud.crear_carrito(db)
+    # from_orm para mapear, luego añadimos total
+    cart_schema = schemas.CartSchema.from_orm(cart)
+    return cart_schema.model_dump() | {"total": 0.0}
+#Agregar aruticulo
+@app.post("/api/pos/carritos/{cart_id}/items", response_model=schemas.CartItemSchema)
+def agregar_item_endpoint(cart_id: int, data: schemas.AddItemRequest, db: Session = Depends(get_db)):
+    cart = crud.obtener_carrito(db, cart_id)
+    if not cart or cart.status != "open":
+        raise HTTPException(status_code=404, detail="Carrito no disponible")
+
+    product = crud.buscar_producto(db, product_id=data.product_id, code=data.code, barcode=data.barcode)
+    if not product:
+        raise HTTPException(status_code=404, detail="Producto no encontrado")
+
+    # Validación de stock (opcional, según negocio)
+    if product.Stock is not None and float(product.Stock) < float(data.quantity):
+        raise HTTPException(status_code=400, detail="Stock insuficiente")
+
+    item = crud.agregar_item(db, cart_id, product, data.quantity)
+    return schemas.CartItemSchema.from_orm(item)
+#Total Carrito
+@app.get("/api/pos/carritos/{cart_id}", response_model=schemas.CartSchema)
+def obtener_carrito_endpoint(cart_id: int, db: Session = Depends(get_db)):
+    cart = crud.obtener_carrito(db, cart_id)
+    if not cart:
+        raise HTTPException(status_code=404, detail="Carrito no encontrado")
+    total = sum(i.subtotal for i in cart.items)
+    cart_schema = schemas.CartSchema.from_orm(cart)
+    return cart_schema.model_dump() | {"total": total}
