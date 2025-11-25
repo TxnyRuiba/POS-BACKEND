@@ -12,12 +12,12 @@ class Users(Base):
 class Product(Base):
     __tablename__ = "Master_Data"
 
-    Id = Column(Integer, primary_key=True, index=True)
-    Code = Column(Integer, unique=True, index=True)        # antes "Code"
-    Barcode = Column(String, nullable=True)                # antes "Barcode"
-    Product = Column(String, nullable=False)               # antes "Product"
-    Category = Column(String, nullable=True)               # antes "Category"
-    Unit = Column(String, nullable=True)                   # antes "Units"
-    Price = Column(Float, nullable=False)                  # antes "Price"
-    Stock = Column(Float, nullable=False)                  # antes "Stock"
-    Min_stock = Column(Integer, nullable=False)            # antes "Min_Stock"
+    Id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    Code = Column(String, unique=True, index=True, nullable=False)
+    Barcode = Column(String, unique=True, index=True, nullable=False)
+    Product = Column(String, nullable=False)
+    Category = Column(String, nullable=False)
+    Units = Column(String, nullable=False)
+    Price = Column(Float, nullable=False)
+    Stock = Column(Integer, nullable=False)
+    Min_Stock = Column(Integer, nullable=False)

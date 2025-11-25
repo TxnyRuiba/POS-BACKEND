@@ -1,0 +1,6 @@
+Practicidad al momento de comandar pedidos, enter imagen, peso
+chatbot toma de pedidos y spam de promociones
+Reporte de venta y utilidad
+Dar de alta las compras con relacion al inventario
+conversiones Eg. Pollo Entero -> Despiece (Relacion de precios)
+Software MEAT (Rastros) benchmark
