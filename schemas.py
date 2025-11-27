@@ -24,23 +24,40 @@ class UserSchema(BaseModel):
         from_attributes = True   # Pydantic v2 reemplaza orm_mode
         populate_by_name = True
 
-class ProductoSchema(BaseModel):
-    id: int = Field(..., alias="Id")
+
+class ProductoCreate(BaseModel):
     code: str | int = Field(..., alias="Code")
-    barcode: int | None = Field(..., alias="Barcode")
+    barcode: str | int | None = Field(None, alias="Barcode")
     product: str = Field(..., alias="Product")
     category: str = Field(..., alias="Category")
     units: str = Field(..., alias="Units")
     price: float = Field(..., alias="Price")
-    stock: int | float = Field(..., alias="Stock")
-    min_stock: int | float = Field(..., alias="Min_Stock")
+    stock: float | int = Field(..., alias="Stock")
+    min_stock: float | int = Field(..., alias="Min_Stock")
 
-    class Config:
-        from_attributes = True
-        populate_by_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
-class StockUpdate(BaseModel):
-    nuevo_stock: int
+class ProductoSchema(BaseModel):
+    Id: int = Field(..., alias="Id")
+    Code: str | int = Field(..., alias="Code")
+    Barcode: str | int | None = Field(None, alias="Barcode")
+    Product: str = Field(..., alias="Product")
+    Category: str = Field(..., alias="Category")
+    Units: str = Field(..., alias="Units")
+    Price: float = Field(..., alias="Price")
+    Stock: float | int = Field(..., alias="Stock")
+    Min_Stock: float | int = Field(..., alias="Min_Stock")
+
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
+
+class ProductoUpdate(BaseModel):
+    product: str | None = Field(None, alias="Product")
+    code: str | int | None = Field(None, alias="Code")
+    barcode: str | int | None = Field(None, alias="Barcode")
+    stock: float | int | None = Field(None, alias="Stock")
+    min_stock: float | int | None = Field(None, alias="Min_Stock")
+    model_config = ConfigDict(populate_by_name=True)
 
 #Carrito
 

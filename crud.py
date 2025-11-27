@@ -1,48 +1,39 @@
 from sqlalchemy.orm import Session
-from models import Product
-from models import Users
-from schemas import ProductoSchema
-from models import Cart, CartItem, Product
 from sqlalchemy import cast, String
+from models import Product, Cart, CartItem, Users
+from schemas import ProductoCreate, ProductoUpdate
+from fastapi import HTTPException
 
-def get_user_by_Username(db: Session, Username: str):
-    return db.query(Users).filter(Users.Username == Username).first()
+# ------------------ Usuarios ------------------
+def get_user_by_username(db: Session, username: str) -> Users | None:
+    return db.query(Users).filter(Users.Username == username).first()
 
-def create_user(db: Session,Username: str, Password: str):
-    new_user = Users(Username=Username, Password=Password)
+def create_user(db: Session, username: str, password: str) -> Users:
+    new_user = Users(Username=username, Password=password)
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
     return new_user
 
-def obtener_productos(db: Session):
+# ------------------ Productos ------------------
+def obtener_productos(db: Session) -> list[Product]:
     return db.query(Product).all()
 
-def obtener_productos_por_categoria(db: Session, category: str):
-    return db.query(Product).filter(Product.Category == category).all()
-
-# Obtener todos los productos
-def obtener_productos(db: Session):
-    return db.query(Product).all()
-
-# Buscar por nombre, código rápido o código de barras
-def buscar_productos(db: Session, query: str):
+def buscar_productos(db: Session, query: str) -> list[Product]:
     return db.query(Product).filter(
         (Product.Product.ilike(f"%{query}%")) |
-        (Product.Code.ilike(f"%{query}%")) |
-        (Product.Barcode.ilike(f"%{query}%"))
+        (cast(Product.Code, String).ilike(f"%{query}%")) |
+        (cast(Product.Barcode, String).ilike(f"%{query}%"))
     ).all()
 
-# Crear nuevo producto
-def crear_product(db: Session, producto: ProductoSchema):
-    nuevo = Product(**producto.model_dump())
+def crear_producto(db: Session, producto: ProductoCreate) -> Product:
+    nuevo = Product(**producto.model_dump(by_alias=True))
     db.add(nuevo)
     db.commit()
     db.refresh(nuevo)
     return nuevo
 
-# Actualizar stock
-def actualizar_stock(db: Session, id: int, nuevo_stock: int):
+def actualizar_stock(db: Session, id: int, nuevo_stock: int) -> Product | None:
     producto = db.query(Product).filter(Product.Id == id).first()
     if not producto:
         return None
@@ -51,17 +42,15 @@ def actualizar_stock(db: Session, id: int, nuevo_stock: int):
     db.refresh(producto)
     return producto
 
-# Eliminar producto
 def eliminar_producto(db: Session, id: int):
     producto = db.query(Product).filter(Product.Id == id).first()
     if not producto:
         return None
-    db.delete(producto)
+    producto.Activo = 0
     db.commit()
     return producto
 
-# Resumen de inventario
-def resumen_inventario(db: Session):
+def resumen_inventario(db: Session) -> dict:
     total = db.query(Product).count()
     bajo = db.query(Product).filter(Product.Stock <= Product.Min_Stock).count()
     normal = total - bajo
@@ -73,17 +62,28 @@ def resumen_inventario(db: Session):
         "Categorias": categorias
     }
 
-def crear_carrito(db: Session) -> Cart: #inicia Venta
+def actualizar_producto(db: Session, product_id: int, data: ProductoUpdate) -> Product | None:
+    producto = db.query(Product).filter(Product.Id == product_id).first()
+    if not producto:
+        return None
+    for field, value in data.model_dump(exclude_unset=True, by_alias=False).items():
+        setattr(producto, field, value)
+    db.commit()
+    db.refresh(producto)
+    return producto
+
+# ------------------ Carritos ------------------
+def crear_carrito(db: Session) -> Cart:
     cart = Cart()
     db.add(cart)
     db.commit()
     db.refresh(cart)
     return cart
 
-def obtener_carrito(db: Session, cart_id: int) -> Cart | None: #Ver el estado actual del carrito
+def obtener_carrito(db: Session, cart_id: int) -> Cart | None:
     return db.query(Cart).filter(Cart.id == cart_id).first()
 
-def buscar_producto(db: Session, product_id=None, code=None, barcode=None) -> Product | None: #Localizar producto o articulo seleccionado
+def buscar_producto(db: Session, product_id=None, code=None, barcode=None) -> Product | None:
     q = db.query(Product)
     if product_id:
         return q.filter(Product.Id == product_id).first()
