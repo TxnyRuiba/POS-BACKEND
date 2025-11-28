@@ -9,14 +9,14 @@ from sqlalchemy import cast, String
 from routes.inventory import router as inventory_router
 from routes.users import router as usuarios_router
 from routes.cart import router as carritos_router
-from routes.inventory import router as inventario_router
-
+from routes.prices import router as price_router
 
 # Crear tablas si no existen
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 app.include_router(inventory_router)
+app.include_router(price_router)
 
 app.add_middleware(
     CORSMiddleware,
@@ -33,4 +33,4 @@ def read_root():
 
 app.include_router(usuarios_router)
 app.include_router(carritos_router)
-app.include_router(inventario_router)
+app.include_router(inventory_router)

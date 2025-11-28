@@ -1,5 +1,7 @@
+import bcrypt
+from sqlalchemy.exc import IntegrityError 
 from sqlalchemy.orm import Session
-from sqlalchemy import cast, String
+from sqlalchemy import cast, String, Index
 from models import Product, Cart, CartItem, Users, PriceHistory
 from schemas import ProductoCreate, ProductoUpdate
 from fastapi import HTTPException
@@ -11,34 +13,49 @@ def get_user_by_username(db: Session, username: str) -> Users | None:
     return db.query(Users).filter(Users.Username == username).first()
 
 def create_user(db: Session, username: str, password: str) -> Users:
-    new_user = Users(Username=username, Password=password)
+    hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
+    new_user = Users(Username=username, Password=hashed.decode('utf-8'))
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
     return new_user
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
 
 # ------------------ Productos ------------------
-def obtener_productos(db: Session) -> list[Product]:
-    return db.query(Product).all()
+def obtener_productos(db: Session, skip: int = 0, limit: int = 100) -> list[Product]:
+    return db.query(Product).filter(Product.Activo == 1).offset(skip).limit(limit).all()
 
 def buscar_productos(db: Session, query: str) -> list[Product]:
+    safe_query = query.strip()
     return db.query(Product).filter(
-        (Product.Product.ilike(f"%{query}%")) |
-        (cast(Product.Code, String).ilike(f"%{query}%")) |
-        (cast(Product.Barcode, String).ilike(f"%{query}%"))
-    ).all()
+        (Product.Product.ilike(f"%{safe_query}%")) |
+        (cast(Product.Code, String).ilike(f"%{safe_query}%")) |
+        (cast(Product.Barcode, String).ilike(f"%{safe_query}%"))
+    ).limit(100).all()
 
 def crear_producto(db: Session, producto: ProductoCreate) -> Product:
-    nuevo = Product(**producto.model_dump(by_alias=True))
-    db.add(nuevo)
-    db.commit()
-    db.refresh(nuevo)
-    return nuevo
+    try:
+        nuevo = Product(**producto.model_dump(by_alias=True))
+        db.add(nuevo)
+        db.commit()
+        db.refresh(nuevo)
+        return nuevo
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=400, detail="Código o código de barras duplicado")
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Error al crear producto: {str(e)}")
 
-def actualizar_stock(db: Session, id: int, nuevo_stock: int) -> Product | None:
+def actualizar_stock(db: Session, id: int, nuevo_stock: int) -> Product:
     producto = db.query(Product).filter(Product.Id == id).first()
     if not producto:
-        return None
+        raise HTTPException(status_code=404, detail="Producto no encontrado")
+    
+    if nuevo_stock < 0:
+        raise HTTPException(status_code=400, detail="Stock no puede ser negativo")
+    
     producto.Stock = nuevo_stock
     db.commit()
     db.refresh(producto)
@@ -96,6 +113,8 @@ def buscar_producto(db: Session, product_id=None, code=None, barcode=None) -> Pr
     return None
 
 def agregar_item(db: Session, cart_id: int, product: Product, quantity: float) -> CartItem:
+    if product.Stock < quantity:
+        raise HTTPException(status_code=400, detail="Stock insuficiente")
     subtotal = float(product.Price) * float(quantity)
     item = CartItem(
         cart_id=cart_id,
@@ -189,11 +208,11 @@ def actualizar_precio(db: Session, product_id: int, new_price: float, reason: st
 
     # Registrar historial (opcional pero recomendado)
     hist = PriceHistory(
-        Product_Id=producto.Id,
-        Old_Price=old_price,
-        New_Price=producto.Price,
-        Reason=reason,
-        Changed_At=datetime.utcnow()
+        product_id=producto.Id,
+        old_price=old_price,
+        new_price=producto.Price,
+        reason=reason,
+        changed_at=datetime.utcnow()
     )
     db.add(hist)
 

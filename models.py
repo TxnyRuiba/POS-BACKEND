@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import Column, DateTime, Integer, String, Float, ForeignKey, BigInteger, Text
+from sqlalchemy import Column, DateTime, Integer, String, Float, ForeignKey, BigInteger, Text, Index
 from database import Base
 from sqlalchemy.orm import relationship
 
@@ -24,7 +24,10 @@ class Product(Base):
     Stock = Column(Integer, nullable = False)
     Min_Stock = Column(Integer, nullable = False)
     Activo = Column(Integer, default = 1)  # 1 = activo, 0 = inactivo
-
+    __table_args__ = (
+        Index('idx_product_active', 'Activo'),
+        Index('idx_product_category_active', 'Category', 'Activo'),\
+    )
 
 #Carrito
 class Cart(Base):
@@ -50,7 +53,7 @@ class CartItem(Base):
   
 
 class PriceHistory(Base):
-    __tablename__ = "Price_History"
+    __tablename__ = "price_history"
 
     id = Column(BigInteger, primary_key=True, index=True)
     product_id = Column(BigInteger, ForeignKey("Master_Data.Id"), nullable=False, index=True)

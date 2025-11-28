@@ -47,8 +47,9 @@ class ProductoSchema(BaseModel):
     Price: float = Field(..., alias="Price")
     Stock: float | int = Field(..., alias="Stock")
     Min_Stock: float | int = Field(..., alias="Min_Stock")
-
+    Activo: int = Field(..., alias="Activo")
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
 
 class ProductoUpdate(BaseModel):
     product: str | None = Field(None, alias="Product")
@@ -104,18 +105,18 @@ class CartUpdateQuantity(BaseModel):
 
 #Precios
 class PrecioUpdate(BaseModel):
-    Price: float = Field(..., alias="Price")
-    Reason: str | None = Field(None, alias="Reason")
+    price: float = Field(..., alias="Price")
+    reason: str | None = Field(None, alias="Reason")
     model_config = ConfigDict(populate_by_name=True)
 
 class PrecioBulkItem(BaseModel):
-    Id: int = Field(..., alias="Id")
-    Price: float = Field(..., alias="Price")
-    Reason: str | None = Field(None, alias="Reason")
+    id: int = Field(..., alias="Id")
+    price: float = Field(..., alias="Price")
+    reason: str | None = Field(None, alias="Reason")
     model_config = ConfigDict(populate_by_name=True)
 
 class PrecioBulkRequest(BaseModel):
-    Items: list[PrecioBulkItem] = Field(..., alias="Items")
+    items: list[PrecioBulkItem] = Field(..., alias="Items")
     model_config = ConfigDict(populate_by_name=True)
 
 class ProductoPrecioSchema(BaseModel):
@@ -127,10 +128,10 @@ class ProductoPrecioSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 class PriceHistorySchema(BaseModel):
-    Id: int
-    Product_Id: int
-    Old_Price: float
-    New_Price: float
-    Reason: str | None
-    Changed_At: datetime
+    id: int
+    product_id: int
+    old_price: float
+    new_price: float
+    reason: str | None
+    changed_at: datetime
     model_config = ConfigDict(from_attributes=True)
