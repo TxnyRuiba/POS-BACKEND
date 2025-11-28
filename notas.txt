@@ -12,3 +12,10 @@ Software MEAT (Rastros) benchmark
 4	4		"Pierna de Pollo"	"Pollo/Aves"	"Kg"	28	15.5	5
 5	5		"Coca Cola 600ml"	"Bebidas"	"Pza"	22	50	15
 6	6		"Lata de Elotes"	"Abarrotes"	"Pza"	15	20	5
+
+stock actual obligatorio
+
+
+
+eliminar productos 
+cancelar carrito

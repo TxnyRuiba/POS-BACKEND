@@ -1,5 +1,5 @@
 import bcrypt
-import schemas  # Importamos los esquemas 
+import schemas
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session 

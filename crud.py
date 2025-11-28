@@ -1,8 +1,10 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import cast, String
-from models import Product, Cart, CartItem, Users
+from models import Product, Cart, CartItem, Users, PriceHistory
 from schemas import ProductoCreate, ProductoUpdate
 from fastapi import HTTPException
+from datetime import datetime
+from pydantic import BaseModel, Field, ConfigDict
 
 # ------------------ Usuarios ------------------
 def get_user_by_username(db: Session, username: str) -> Users | None:
@@ -124,3 +126,101 @@ def resumen_carrito(db: Session, cart_id: int) -> dict | None:
         return None
     total = sum(i.subtotal for i in cart.items)
     return {"cart": cart, "total": float(total)}
+
+def eliminar_item_carrito(db: Session, cart_id: int, item_id: int):
+    item = db.query(CartItem).filter(CartItem.cart_id == cart_id, CartItem.id == item_id).first()
+    if not item:
+        return None, "Item no encontrado"
+    db.delete(item)
+    db.commit()
+    return True, None
+
+def vaciar_carrito(db: Session, cart_id: int):
+    items = db.query(CartItem).filter(CartItem.cart_id == cart_id).all()
+    for item in items:
+        db.delete(item)
+    db.commit()
+    return True
+
+def cambiar_estado_carrito(db: Session, cart_id: int, new_status: str):
+    cart = db.query(Cart).filter(Cart.id == cart_id).first()
+    if not cart:
+        return None, "Carrito no encontrado"
+    cart.status = new_status
+    db.commit()
+    db.refresh(cart)
+    return cart, None
+
+def actualizar_cantidad_item(db: Session, cart_id: int, item_id: int, new_qty: int):
+    item = db.query(CartItem).filter(CartItem.cart_id == cart_id, CartItem.id == item_id).first()
+    if not item:
+        return None, "Item no encontrado"
+    if new_qty <= 0:
+        return None, "Cantidad inválida"
+    item.quantity = new_qty
+    db.commit()
+    db.refresh(item)
+    return item, None
+
+def calcular_total_carrito(db: Session, cart_id: int):
+    items = db.query(CartItem).filter(CartItem.cart_id == cart_id).all()
+    total = sum(i.price * i.quantity for i in items)
+    return total
+
+
+#Precios
+def actualizar_precio(db: Session, product_id: int, new_price: float, reason: str | None = None):
+    producto = db.query(Product).filter(Product.Id == product_id).first()
+    if not producto:
+        return None, "Producto no encontrado"
+
+    if producto.Activo == 0:
+        return None, "Producto inactivo"
+
+    if new_price < 0:
+        return None, "Precio no puede ser negativo"
+
+    old_price = producto.Price
+    if round(old_price, 2) == round(new_price, 2):
+        return None, "El nuevo precio es igual al actual"
+
+    producto.Price = float(round(new_price, 2))
+    db.add(producto)
+
+    # Registrar historial (opcional pero recomendado)
+    hist = PriceHistory(
+        Product_Id=producto.Id,
+        Old_Price=old_price,
+        New_Price=producto.Price,
+        Reason=reason,
+        Changed_At=datetime.utcnow()
+    )
+    db.add(hist)
+
+    db.commit()
+    db.refresh(producto)
+    return producto, None
+
+def actualizar_precios_en_lote(db: Session, items: list[dict]):
+    resultados = []
+    for item in items:
+        pid = int(item["Id"])
+        price = float(item["Price"])
+        reason = item.get("Reason")
+        producto, error = actualizar_precio(db, pid, price, reason)
+        resultados.append({
+            "Id": pid,
+            "Success": error is None,
+            "Error": error if error else None,
+            "NewPrice": producto.Price if producto else None
+        })
+    return resultados
+
+def obtener_historial_precios(db: Session, product_id: int, limit: int = 50):
+    return (
+        db.query(PriceHistory)
+        .filter(PriceHistory.product_id == product_id)
+        .order_by(PriceHistory.changed_at.desc())
+        .limit(limit)
+        .all()
+    )

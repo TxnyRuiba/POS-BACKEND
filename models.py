@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import Column, DateTime, Integer, String, Float, ForeignKey
+from sqlalchemy import Column, DateTime, Integer, String, Float, ForeignKey, BigInteger, Text
 from database import Base
 from sqlalchemy.orm import relationship
 
@@ -29,19 +29,34 @@ class Product(Base):
 #Carrito
 class Cart(Base):
     __tablename__ = "cart"
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    status = Column(String, nullable=False, default="open")
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    id = Column(BigInteger, primary_key=True, index=True)
+    status = Column(Text, default="open")
+    created_at = Column(DateTime, default=datetime.utcnow)
     items = relationship("CartItem", back_populates="cart", cascade="all, delete-orphan")
+
 
 class CartItem(Base):
     __tablename__ = "cart_items"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    cart_id = Column(Integer, ForeignKey("cart.id", ondelete="CASCADE"), nullable=False)
-    product_id = Column(Integer, ForeignKey("Master_Data.Id"), nullable=False)
-    product_name = Column(String, nullable=False)
+    id = Column(BigInteger, primary_key=True, index=True)
+    cart_id = Column(BigInteger, ForeignKey("cart.id"), nullable=False)
+    product_id = Column(BigInteger, ForeignKey("Master_Data.Id"), nullable=False)
+    product_name = Column(Text, nullable=False)
     price = Column(Float, nullable=False)
-    quantity = Column(Float, nullable=False, default=1.0)
+    quantity = Column(Float, nullable=False)
     subtotal = Column(Float, nullable=False)
     cart = relationship("Cart", back_populates="items")
+  
+
+class PriceHistory(Base):
+    __tablename__ = "Price_History"
+
+    id = Column(BigInteger, primary_key=True, index=True)
+    product_id = Column(BigInteger, ForeignKey("Master_Data.Id"), nullable=False, index=True)
+    old_price = Column(Float, nullable=False)
+    new_price = Column(Float, nullable=False)
+    reason = Column(Text, nullable=True)
+    changed_at = Column(DateTime, default=datetime.utcnow)
+
+    product = relationship("Product")
