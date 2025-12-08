@@ -179,4 +179,107 @@ class SaleTicketSchema(BaseModel):
     items: list[SaleTicketItemSchema] = []
     
     model_config = ConfigDict(from_attributes=True)
-     
+
+    # ==================== TICKETS DE VENTA ====================
+class CreateTicketRequest(BaseModel):
+    cart_id: int = Field(..., alias="CartId")
+    payment_method: str = Field(..., alias="PaymentMethod")  # cash, card, transfer
+    payment_reference: str | None = Field(None, alias="PaymentReference")
+    amount_paid: Decimal | None = Field(None, alias="AmountPaid")
+    tax: Decimal = Field(default=Decimal('0.00'), alias="Tax")
+    discount: Decimal = Field(default=Decimal('0.00'), alias="Discount")
+    
+    model_config = ConfigDict(populate_by_name=True)
+    
+    @field_validator('payment_method')
+    @classmethod
+    def validate_payment_method(cls, v):
+        allowed = ['cash', 'card', 'transfer']
+        if v.lower() not in allowed:
+            raise ValueError(f'Método de pago debe ser: {", ".join(allowed)}')
+        return v.lower()
+
+class SaleTicketItemSchema(BaseModel):
+    product_code: str
+    product_name: str
+    unit_price: Decimal
+    quantity: Decimal
+    subtotal: Decimal
+    model_config = ConfigDict(from_attributes=True)
+
+class SaleTicketSchema(BaseModel):
+    id: int
+    ticket_number: str
+    subtotal: Decimal
+    tax: Decimal
+    discount: Decimal
+    total: Decimal
+    payment_method: str
+    payment_reference: str | None
+    amount_paid: Decimal | None
+    change_given: Decimal | None
+    status: str
+    created_at: datetime
+    cashier_name: str | None = None
+    items: list[SaleTicketItemSchema] = []
+    model_config = ConfigDict(from_attributes=True)
+
+class CancelTicketRequest(BaseModel):
+    reason: str = Field(..., alias="Reason", min_length=10)
+    model_config = ConfigDict(populate_by_name=True)
+
+# ==================== CAJA REGISTRADORA ====================
+class OpenCashRegisterRequest(BaseModel):
+    initial_cash: Decimal = Field(default=Decimal('0.00'), alias="InitialCash")
+    notes: str | None = Field(None, alias="Notes")
+    model_config = ConfigDict(populate_by_name=True)
+    
+    @field_validator('initial_cash')
+    @classmethod
+    def validate_initial_cash(cls, v):
+        if v < 0:
+            raise ValueError('El efectivo inicial no puede ser negativo')
+        return v
+
+class CloseCashRegisterRequest(BaseModel):
+    final_cash: Decimal = Field(..., alias="FinalCash")
+    notes: str | None = Field(None, alias="Notes")
+    model_config = ConfigDict(populate_by_name=True)
+    
+    @field_validator('final_cash')
+    @classmethod
+    def validate_final_cash(cls, v):
+        if v < 0:
+            raise ValueError('El efectivo final no puede ser negativo')
+        return v
+
+class CashRegisterSchema(BaseModel):
+    id: int
+    user_id: int
+    opened_at: datetime
+    closed_at: datetime | None
+    initial_cash: Decimal
+    final_cash: Decimal | None
+    expected_cash: Decimal | None
+    difference: Decimal | None
+    total_sales: Decimal
+    total_cash: Decimal
+    total_card: Decimal
+    total_transfer: Decimal
+    num_transactions: int
+    status: str
+    notes: str | None
+    model_config = ConfigDict(from_attributes=True)
+
+class CashRegisterSummary(BaseModel):
+    register_id: int
+    cashier: str
+    opened_at: datetime
+    closed_at: datetime | None
+    status: str
+    total_sales: Decimal
+    total_cash: Decimal
+    total_card: Decimal
+    total_transfer: Decimal
+    num_transactions: int
+    difference: Decimal | None 

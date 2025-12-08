@@ -113,23 +113,35 @@ class SaleTicketItem(Base):
     ticket = relationship("SaleTicket", back_populates="items")
 
 
-# NUEVO: Control de Caja
+# ==================== CONTROL DE CAJA ====================
 class CashRegister(Base):
     __tablename__ = "cash_register"
-    
-    id = Column(BigInteger, primary_key=True, index=True)
+
+    id = Column(BigInteger, primary_key=True, index=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey("Users.ID"), nullable=False)
     opened_at = Column(DateTime, default=datetime.utcnow)
     closed_at = Column(DateTime, nullable=True)
     
     initial_cash = Column(NUMERIC(10, 2), default=Decimal('0.00'))
     final_cash = Column(NUMERIC(10, 2), nullable=True)
+    expected_cash = Column(NUMERIC(10, 2), nullable=True)
+    difference = Column(NUMERIC(10, 2), nullable=True)
     
     total_sales = Column(NUMERIC(10, 2), default=Decimal('0.00'))
     total_cash = Column(NUMERIC(10, 2), default=Decimal('0.00'))
     total_card = Column(NUMERIC(10, 2), default=Decimal('0.00'))
+    total_transfer = Column(NUMERIC(10, 2), default=Decimal('0.00'))
+    
+    num_transactions = Column(Integer, default=0)
     
     status = Column(String, default="open")  # open, closed
     notes = Column(Text, nullable=True)
     
     user = relationship("Users")
+    tickets = relationship("SaleTicket", back_populates="cash_register")
+    
+    __table_args__ = (
+        Index('idx_register_date', 'opened_at'),
+        Index('idx_register_user', 'user_id'),
+        Index('idx_register_status', 'status'),
+    )
