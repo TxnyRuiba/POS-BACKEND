@@ -2,30 +2,34 @@ from decimal import Decimal
 from datetime import datetime
 from pydantic import BaseModel, Field, ConfigDict, field_validator
 
+# ==================== USUARIOS ====================
 class LoginRequest(BaseModel):
     username: str = Field(..., alias="Username")
     password: str = Field(..., alias="Password")
-
-    class Config:
-        populate_by_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class RegisterRequest(BaseModel):
-    username: str = Field(..., alias="Username")
-    password: str = Field(..., alias="Password")
+    username: str = Field(..., alias="Username", min_length=3, max_length=50)
+    password: str = Field(..., alias="Password", min_length=4, max_length=72)
+    
+    model_config = ConfigDict(populate_by_name=True)
+    
+    @field_validator('password')
+    @classmethod
+    def validate_password_length(cls, v):
+        if len(v.encode('utf-8')) > 72:
+            raise ValueError("La contraseña no puede superar los 72 caracteres")
+        return v
 
-    class Config:
-        populate_by_name = True
 
 class UserSchema(BaseModel):
     id: int = Field(..., alias="ID")
     username: str = Field(..., alias="Username")
-
-    class Config:
-        from_attributes = True   # Pydantic v2 reemplaza orm_mode
-        populate_by_name = True
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
 
+# ==================== PRODUCTOS ====================
 class ProductoCreate(BaseModel):
     code: str | int = Field(..., alias="Code")
     barcode: str | int | None = Field(None, alias="Barcode")
@@ -33,17 +37,18 @@ class ProductoCreate(BaseModel):
     category: str = Field(..., alias="Category")
     units: str = Field(..., alias="Units")
     price: Decimal = Field(..., alias="Price")
-    stock: float | int = Field(..., alias="Stock")
-    min_stock: float | int = Field(..., alias="Min_Stock")
-
+    stock: int = Field(..., alias="Stock")
+    min_stock: int = Field(..., alias="Min_Stock")
+    
     model_config = ConfigDict(populate_by_name=True)
-
+    
     @field_validator('price')
     @classmethod
     def validate_price(cls, v):
         if v < 0:
             raise ValueError('El precio no puede ser negativo')
         return round(v, 2)
+
 
 class ProductoSchema(BaseModel):
     Id: int = Field(..., alias="Id")
@@ -53,8 +58,8 @@ class ProductoSchema(BaseModel):
     Category: str = Field(..., alias="Category")
     Units: str = Field(..., alias="Units")
     Price: Decimal = Field(..., alias="Price")
-    Stock: float | int = Field(..., alias="Stock")
-    Min_Stock: float | int = Field(..., alias="Min_Stock")
+    Stock: int = Field(..., alias="Stock")
+    Min_Stock: int = Field(..., alias="Min_Stock")
     Activo: int = Field(..., alias="Activo")
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
@@ -63,22 +68,22 @@ class ProductoUpdate(BaseModel):
     product: str | None = Field(None, alias="Product")
     code: str | int | None = Field(None, alias="Code")
     barcode: str | int | None = Field(None, alias="Barcode")
-    stock: float | int | None = Field(None, alias="Stock")
-    min_stock: float | int | None = Field(None, alias="Min_Stock")
+    stock: int | None = Field(None, alias="Stock")
+    min_stock: int | None = Field(None, alias="Min_Stock")
     model_config = ConfigDict(populate_by_name=True)
-    Activo: int = Field(..., alias="Activo")
 
-#Carrito
 
+# ==================== CARRITO ====================
 class CartCreate(BaseModel):
-    # opcional carritos “vacíos”
     pass
+
 
 class AddItemRequest(BaseModel):
     product_id: int | None = None
     code: str | None = None
     barcode: str | None = None
-    quantity: float = 1.0
+    quantity: Decimal = Decimal('1.0')
+
 
 class CartItemSchema(BaseModel):
     id: int
@@ -87,36 +92,34 @@ class CartItemSchema(BaseModel):
     price: Decimal
     quantity: Decimal
     subtotal: Decimal
+    model_config = ConfigDict(from_attributes=True)
 
-    class Config:
-        from_attributes = True
 
 class CartSchema(BaseModel):
     id: int
     status: str
     created_at: datetime | None
     items: list[CartItemSchema] = []
-    total: float | None = None
+    total: Decimal | None = None
+    model_config = ConfigDict(from_attributes=True)
 
-    model_config = ConfigDict(
-        from_attributes=True,
-    )
 
 class CartUpdateStatus(BaseModel):
     status: str = Field(..., alias="Status")
     model_config = ConfigDict(populate_by_name=True)
 
+
 class CartUpdateQuantity(BaseModel):
-    quantity: int = Field(..., alias="Quantity")
+    quantity: Decimal = Field(..., alias="Quantity")
     model_config = ConfigDict(populate_by_name=True)
 
 
-
-#Precios
+# ==================== PRECIOS ====================
 class PrecioUpdate(BaseModel):
     price: Decimal = Field(..., alias="Price")
     reason: str | None = Field(None, alias="Reason")
     model_config = ConfigDict(populate_by_name=True)
+
 
 class PrecioBulkItem(BaseModel):
     id: int = Field(..., alias="Id")
@@ -124,9 +127,11 @@ class PrecioBulkItem(BaseModel):
     reason: str | None = Field(None, alias="Reason")
     model_config = ConfigDict(populate_by_name=True)
 
+
 class PrecioBulkRequest(BaseModel):
     items: list[PrecioBulkItem] = Field(..., alias="Items")
     model_config = ConfigDict(populate_by_name=True)
+
 
 class ProductoPrecioSchema(BaseModel):
     Id: int
@@ -135,6 +140,7 @@ class ProductoPrecioSchema(BaseModel):
     Price: Decimal
     Activo: int
     model_config = ConfigDict(from_attributes=True)
+
 
 class PriceHistorySchema(BaseModel):
     id: int
@@ -145,45 +151,11 @@ class PriceHistorySchema(BaseModel):
     changed_at: datetime
     model_config = ConfigDict(from_attributes=True)
 
-  # NUEVO: Schemas para Tickets
+
+# ==================== TICKETS DE VENTA ====================
 class CreateTicketRequest(BaseModel):
     cart_id: int = Field(..., alias="CartId")
-    payment_method: str = Field(..., alias="PaymentMethod")  # cash, card, transfer
-    payment_reference: str | None = Field(None, alias="PaymentReference")
-    tax: Decimal = Field(default=Decimal('0.00'), alias="Tax")
-    discount: Decimal = Field(default=Decimal('0.00'), alias="Discount")
-    
-    model_config = ConfigDict(populate_by_name=True)
-
-
-class SaleTicketItemSchema(BaseModel):
-    product_code: str
-    product_name: str
-    unit_price: Decimal
-    quantity: Decimal
-    subtotal: Decimal
-    
-    model_config = ConfigDict(from_attributes=True)
-
-
-class SaleTicketSchema(BaseModel):
-    id: int
-    ticket_number: str
-    subtotal: Decimal
-    tax: Decimal
-    discount: Decimal
-    total: Decimal
-    payment_method: str
-    status: str
-    created_at: datetime
-    items: list[SaleTicketItemSchema] = []
-    
-    model_config = ConfigDict(from_attributes=True)
-
-    # ==================== TICKETS DE VENTA ====================
-class CreateTicketRequest(BaseModel):
-    cart_id: int = Field(..., alias="CartId")
-    payment_method: str = Field(..., alias="PaymentMethod")  # cash, card, transfer
+    payment_method: str = Field(..., alias="PaymentMethod")
     payment_reference: str | None = Field(None, alias="PaymentReference")
     amount_paid: Decimal | None = Field(None, alias="AmountPaid")
     tax: Decimal = Field(default=Decimal('0.00'), alias="Tax")
@@ -199,6 +171,7 @@ class CreateTicketRequest(BaseModel):
             raise ValueError(f'Método de pago debe ser: {", ".join(allowed)}')
         return v.lower()
 
+
 class SaleTicketItemSchema(BaseModel):
     product_code: str
     product_name: str
@@ -206,6 +179,7 @@ class SaleTicketItemSchema(BaseModel):
     quantity: Decimal
     subtotal: Decimal
     model_config = ConfigDict(from_attributes=True)
+
 
 class SaleTicketSchema(BaseModel):
     id: int
@@ -224,9 +198,11 @@ class SaleTicketSchema(BaseModel):
     items: list[SaleTicketItemSchema] = []
     model_config = ConfigDict(from_attributes=True)
 
+
 class CancelTicketRequest(BaseModel):
     reason: str = Field(..., alias="Reason", min_length=10)
     model_config = ConfigDict(populate_by_name=True)
+
 
 # ==================== CAJA REGISTRADORA ====================
 class OpenCashRegisterRequest(BaseModel):
@@ -241,6 +217,7 @@ class OpenCashRegisterRequest(BaseModel):
             raise ValueError('El efectivo inicial no puede ser negativo')
         return v
 
+
 class CloseCashRegisterRequest(BaseModel):
     final_cash: Decimal = Field(..., alias="FinalCash")
     notes: str | None = Field(None, alias="Notes")
@@ -252,6 +229,7 @@ class CloseCashRegisterRequest(BaseModel):
         if v < 0:
             raise ValueError('El efectivo final no puede ser negativo')
         return v
+
 
 class CashRegisterSchema(BaseModel):
     id: int
@@ -271,6 +249,7 @@ class CashRegisterSchema(BaseModel):
     notes: str | None
     model_config = ConfigDict(from_attributes=True)
 
+
 class CashRegisterSummary(BaseModel):
     register_id: int
     cashier: str
@@ -282,4 +261,4 @@ class CashRegisterSummary(BaseModel):
     total_card: Decimal
     total_transfer: Decimal
     num_transactions: int
-    difference: Decimal | None 
+    difference: Decimal | None

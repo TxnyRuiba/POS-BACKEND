@@ -10,110 +10,120 @@ class Users(Base):
     ID = Column(Integer, primary_key=True, index=True, autoincrement=True)
     Username = Column(String, unique=True, index=True, nullable=False)
     Password = Column(String, nullable=False)
-    Role = Column(String, default="cashier")  # NUEVO: admin, manager, cashier
+    Role = Column(String, default="cashier")
 
 
 class Product(Base):
     __tablename__ = "Master_Data"
 
-    Id = Column(Integer, primary_key = True, index = True, autoincrement = True)
-    Code = Column(String, unique = True, index = True, nullable = False)
-    Barcode = Column(String, unique = True, index = True, nullable = False)
-    Product = Column(String, nullable = False)
-    Category = Column(String, nullable = False)
-    Units = Column(String, nullable = False)
+    Id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    Code = Column(String, unique=True, index=True, nullable=False)
+    Barcode = Column(String, unique=True, index=True, nullable=False)
+    Product = Column(String, nullable=False)
+    Category = Column(String, nullable=False)
+    Units = Column(String, nullable=False)
     Price = Column(NUMERIC(10, 2), nullable=False)
-    Stock = Column(Integer, nullable = False)
-    Min_Stock = Column(Integer, nullable = False)
-    Activo = Column(Integer, default = 1)  # 1 = activo, 0 = inactivo
+    Stock = Column(Integer, nullable=False)
+    Min_Stock = Column(Integer, nullable=False)
+    Activo = Column(Integer, default=1)
+    
     __table_args__ = (
         Index('idx_product_active', 'Activo'),
-        Index('idx_product_category_active', 'Category', 'Activo'),\
+        Index('idx_product_category_active', 'Category', 'Activo'),
     )
 
-#Carrito
+
 class Cart(Base):
     __tablename__ = "cart"
 
-    id = Column(BigInteger, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("Users.ID"), nullable=True)  # NUEVO
-    status = Column(Text, default="open")  # open, completed, cancelled
+    id = Column(BigInteger, primary_key=True, index=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("Users.ID"), nullable=True)
+    status = Column(Text, default="open")
     created_at = Column(DateTime, default=datetime.utcnow)
-    completed_at = Column(DateTime, nullable=True)  # NUEVO
+    completed_at = Column(DateTime, nullable=True)
     items = relationship("CartItem", back_populates="cart", cascade="all, delete-orphan")
+    user = relationship("Users", foreign_keys=[user_id])
 
 
 class CartItem(Base):
     __tablename__ = "cart_items"
 
-    id = Column(BigInteger, primary_key=True, index=True)
+    id = Column(BigInteger, primary_key=True, index=True, autoincrement=True)
     cart_id = Column(BigInteger, ForeignKey("cart.id"), nullable=False)
     product_id = Column(BigInteger, ForeignKey("Master_Data.Id"), nullable=False)
     product_name = Column(Text, nullable=False)
-    price = Column(NUMERIC(10, 2), nullable=False)  # CAMBIADO
-    quantity = Column(NUMERIC(10, 3), nullable=False)  # CAMBIADO: permite 0.5kg, etc
-    subtotal = Column(NUMERIC(10, 2), nullable=False)  # CAMBIADO
+    price = Column(NUMERIC(10, 2), nullable=False)
+    quantity = Column(NUMERIC(10, 3), nullable=False)
+    subtotal = Column(NUMERIC(10, 2), nullable=False)
     cart = relationship("Cart", back_populates="items")
-  
+    product = relationship("Product")
+
 
 class PriceHistory(Base):
     __tablename__ = "price_history"
 
-    id = Column(BigInteger, primary_key=True, index=True)
+    id = Column(BigInteger, primary_key=True, index=True, autoincrement=True)
     product_id = Column(BigInteger, ForeignKey("Master_Data.Id"), nullable=False, index=True)
-    old_price = Column(NUMERIC(10, 2), nullable=False)  # CAMBIADO
-    new_price = Column(NUMERIC(10, 2), nullable=False)  # CAMBIADO
+    old_price = Column(NUMERIC(10, 2), nullable=False)
+    new_price = Column(NUMERIC(10, 2), nullable=False)
     reason = Column(Text, nullable=True)
     changed_at = Column(DateTime, default=datetime.utcnow)
-
     product = relationship("Product")
 
-    # NUEVO: Modelo de Ticket de Venta
+
 class SaleTicket(Base):
     __tablename__ = "sale_tickets"
     
-    id = Column(BigInteger, primary_key=True, index=True)
-    ticket_number = Column(String, unique=True, nullable=False, index=True)  # TKT-20231207-001
+    id = Column(BigInteger, primary_key=True, index=True, autoincrement=True)
+    ticket_number = Column(String, unique=True, nullable=False, index=True)
     cart_id = Column(BigInteger, ForeignKey("cart.id"), nullable=False)
-    user_id = Column(Integer, ForeignKey("Users.ID"), nullable=False)  # Cajero
+    cash_register_id = Column(BigInteger, ForeignKey("cash_register.id"), nullable=True)  # ← AÑADIDO
+    user_id = Column(Integer, ForeignKey("Users.ID"), nullable=False)
     
     subtotal = Column(NUMERIC(10, 2), nullable=False)
     tax = Column(NUMERIC(10, 2), default=Decimal('0.00'))
     discount = Column(NUMERIC(10, 2), default=Decimal('0.00'))
     total = Column(NUMERIC(10, 2), nullable=False)
     
-    payment_method = Column(String, nullable=False)  # cash, card, transfer
-    payment_reference = Column(String, nullable=True)  # Para tarjeta/transferencia
+    payment_method = Column(String, nullable=False)
+    payment_reference = Column(String, nullable=True)
+    amount_paid = Column(NUMERIC(10, 2), nullable=True)
+    change_given = Column(NUMERIC(10, 2), nullable=True)
     
-    status = Column(String, default="completed")  # completed, cancelled
+    status = Column(String, default="completed")
     created_at = Column(DateTime, default=datetime.utcnow)
     cancelled_at = Column(DateTime, nullable=True)
     cancelled_by = Column(Integer, ForeignKey("Users.ID"), nullable=True)
     cancellation_reason = Column(Text, nullable=True)
 
     # Relaciones
-    cart = relationship("Cart")
+    cart = relationship("Cart", foreign_keys=[cart_id])
     cashier = relationship("Users", foreign_keys=[user_id])
     cancelled_by_user = relationship("Users", foreign_keys=[cancelled_by])
+    cash_register = relationship("CashRegister", foreign_keys=[cash_register_id], back_populates="tickets")  # ← CORREGIDO
     items = relationship("SaleTicketItem", back_populates="ticket", cascade="all, delete-orphan")
     
-    # NUEVO: Items del ticket (snapshot de la venta)
+    __table_args__ = (
+        Index('idx_ticket_date', 'created_at'),
+        Index('idx_ticket_status', 'status'),
+        Index('idx_ticket_cashier', 'user_id'),
+    )
+
+
 class SaleTicketItem(Base):
     __tablename__ = "sale_ticket_items"
     
-    id = Column(BigInteger, primary_key=True, index=True)
+    id = Column(BigInteger, primary_key=True, index=True, autoincrement=True)
     ticket_id = Column(BigInteger, ForeignKey("sale_tickets.id"), nullable=False)
-    product_id = Column(BigInteger, nullable=False)  # No FK para mantener histórico
+    product_id = Column(BigInteger, nullable=False)
     product_code = Column(String, nullable=False)
     product_name = Column(Text, nullable=False)
     unit_price = Column(NUMERIC(10, 2), nullable=False)
     quantity = Column(NUMERIC(10, 3), nullable=False)
     subtotal = Column(NUMERIC(10, 2), nullable=False)
-    
     ticket = relationship("SaleTicket", back_populates="items")
 
 
-# ==================== CONTROL DE CAJA ====================
 class CashRegister(Base):
     __tablename__ = "cash_register"
 
@@ -133,12 +143,11 @@ class CashRegister(Base):
     total_transfer = Column(NUMERIC(10, 2), default=Decimal('0.00'))
     
     num_transactions = Column(Integer, default=0)
-    
-    status = Column(String, default="open")  # open, closed
+    status = Column(String, default="open")
     notes = Column(Text, nullable=True)
     
     user = relationship("Users")
-    tickets = relationship("SaleTicket", back_populates="cash_register")
+    tickets = relationship("SaleTicket", back_populates="cash_register", foreign_keys="[SaleTicket.cash_register_id]")  # ← CORREGIDO
     
     __table_args__ = (
         Index('idx_register_date', 'opened_at'),

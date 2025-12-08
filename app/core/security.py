@@ -18,9 +18,18 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 security = HTTPBearer()
 
 # ------------------ Hash de contraseñas ------------------
+from passlib.context import CryptContext
+
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
 def hash_password(password: str) -> str:
-    """Hashea una contraseña"""
+    # Validar longitud antes de hashear
+    if len(password.encode("utf-8")) > 72:
+        raise ValueError("La contraseña no puede superar los 72 caracteres.")
     return pwd_context.hash(password)
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    return pwd_context.verify(plain_password, hashed_password)
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verifica una contraseña contra su hash"""
