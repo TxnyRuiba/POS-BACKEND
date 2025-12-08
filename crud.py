@@ -1,4 +1,5 @@
 import bcrypt
+from decimal import Decimal
 from sqlalchemy.exc import IntegrityError 
 from sqlalchemy.orm import Session
 from sqlalchemy import cast, String, Index
@@ -7,20 +8,48 @@ from schemas import ProductoCreate, ProductoUpdate
 from fastapi import HTTPException
 from datetime import datetime
 from pydantic import BaseModel, Field, ConfigDict
+from app.core.security import hash_password, verify_password
 
 # ------------------ Usuarios ------------------
 def get_user_by_username(db: Session, username: str) -> Users | None:
     return db.query(Users).filter(Users.Username == username).first()
 
-def create_user(db: Session, username: str, password: str) -> Users:
-    hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
-    new_user = Users(Username=username, Password=hashed.decode('utf-8'))
-    db.add(new_user)
+def create_user(db: Session, username: str, password: str, role: str = "cashier") -> Users:
+    """Crea un nuevo usuario con contraseña hasheada"""
+    hashed_pwd = hash_password(password)
+    new_user = Users(Username=username, Password=hashed_pwd, Role=role)
+    try:
+        db.add(new_user)
+        db.commit()
+        db.refresh(new_user)
+        return new_user
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=400, detail="El usuario ya existe")
+
+def authenticate_user(db: Session, username: str, password: str) -> Users | None:
+    """Autentica un usuario"""
+    user = get_user_by_username(db, username)
+    if not user:
+        return None
+    if not verify_password(password, user.Password):
+        return None
+    return user
+
+def update_user_role(db: Session, user_id: int, new_role: str) -> Users:
+    """Actualiza el rol de un usuario (solo admin)"""
+    valid_roles = ["admin", "manager", "cashier"]
+    if new_role not in valid_roles:
+        raise HTTPException(status_code=400, detail=f"Rol inválido. Use: {', '.join(valid_roles)}")
+    
+    user = db.query(Users).filter(Users.ID == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    
+    user.Role = new_role
     db.commit()
-    db.refresh(new_user)
-    return new_user
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
+    db.refresh(user)
+    return user
 
 # ------------------ Productos ------------------
 def obtener_productos(db: Session, skip: int = 0, limit: int = 100) -> list[Product]:
@@ -64,16 +93,19 @@ def actualizar_stock(db: Session, id: int, nuevo_stock: int) -> Product:
 def eliminar_producto(db: Session, id: int):
     producto = db.query(Product).filter(Product.Id == id).first()
     if not producto:
-        return None
+        raise HTTPException(status_code=404, detail="Producto no encontrado")
     producto.Activo = 0
     db.commit()
     return producto
 
 def resumen_inventario(db: Session) -> dict:
-    total = db.query(Product).count()
-    bajo = db.query(Product).filter(Product.Stock <= Product.Min_Stock).count()
+    total = db.query(Product).filter(Product.Activo == 1).count()
+    bajo = db.query(Product).filter(
+        Product.Stock <= Product.Min_Stock, 
+        Product.Activo == 1
+    ).count()
     normal = total - bajo
-    categorias = db.query(Product.Category).distinct().count()
+    categorias = db.query(Product.Category).filter(Product.Activo == 1).distinct().count()
     return {
         "TotalProductos": total,
         "StockBajo": bajo,
@@ -84,7 +116,8 @@ def resumen_inventario(db: Session) -> dict:
 def actualizar_producto(db: Session, product_id: int, data: ProductoUpdate) -> Product | None:
     producto = db.query(Product).filter(Product.Id == product_id).first()
     if not producto:
-        return None
+        raise HTTPException(status_code=404, detail="Producto no encontrado")
+    
     for field, value in data.model_dump(exclude_unset=True, by_alias=False).items():
         setattr(producto, field, value)
     db.commit()
@@ -92,8 +125,9 @@ def actualizar_producto(db: Session, product_id: int, data: ProductoUpdate) -> P
     return producto
 
 # ------------------ Carritos ------------------
-def crear_carrito(db: Session) -> Cart:
-    cart = Cart()
+def crear_carrito(db: Session, user_id: int | None = None) -> Cart:
+    """Crea un nuevo carrito, opcionalmente asociado a un usuario"""
+    cart = Cart(user_id=user_id)  # Aquí está el user_id que causaba error
     db.add(cart)
     db.commit()
     db.refresh(cart)
@@ -103,7 +137,7 @@ def obtener_carrito(db: Session, cart_id: int) -> Cart | None:
     return db.query(Cart).filter(Cart.id == cart_id).first()
 
 def buscar_producto(db: Session, product_id=None, code=None, barcode=None) -> Product | None:
-    q = db.query(Product)
+    q = db.query(Product).filter(Product.Activo == 1)
     if product_id:
         return q.filter(Product.Id == product_id).first()
     if code:
@@ -112,16 +146,33 @@ def buscar_producto(db: Session, product_id=None, code=None, barcode=None) -> Pr
         return q.filter(cast(Product.Barcode, String).ilike(f"%{barcode}%")).first()
     return None
 
-def agregar_item(db: Session, cart_id: int, product: Product, quantity: float) -> CartItem:
-    if product.Stock < quantity:
+def agregar_item(db: Session, cart_id: int, product: Product, quantity: Decimal) -> CartItem:
+    if product.Stock < float(quantity):
         raise HTTPException(status_code=400, detail="Stock insuficiente")
     subtotal = float(product.Price) * float(quantity)
+
+     # Verificar si el item ya existe en el carrito
+    existing_item = db.query(CartItem).filter(
+        CartItem.cart_id == cart_id,
+        CartItem.product_id == product.Id
+    ).first()
+    
+    if existing_item:
+        # Actualizar cantidad existente
+        existing_item.quantity += quantity
+        existing_item.subtotal = existing_item.price * existing_item.quantity
+        db.commit()
+        db.refresh(existing_item)
+        return existing_item
+    
+    # Crear nuevo item
+    subtotal = product.Price * quantity
     item = CartItem(
         cart_id=cart_id,
         product_id=product.Id,
         product_name=product.Product,
-        price=float(product.Price),
-        quantity=float(quantity),
+        price=product.Price,
+        quantity=quantity,
         subtotal=subtotal,
     )
     db.add(item)
@@ -129,12 +180,16 @@ def agregar_item(db: Session, cart_id: int, product: Product, quantity: float) -
     db.refresh(item)
     return item
 
-def actualizar_item(db: Session, item_id: int, quantity: float) -> CartItem | None:
+def actualizar_item(db: Session, item_id: int, quantity: Decimal) -> CartItem | None:
     item = db.query(CartItem).filter(CartItem.id == item_id).first()
     if not item:
-        return None
-    item.quantity = float(quantity)
-    item.subtotal = float(item.price) * float(item.quantity)
+        raise HTTPException(status_code=404, detail="Item no encontrado")
+    
+    if quantity <= 0:
+        raise HTTPException(status_code=400, detail="La cantidad debe ser mayor a 0")
+    
+    item.quantity = quantity
+    item.subtotal = item.price * item.quantity
     db.commit()
     db.refresh(item)
     return item
@@ -142,33 +197,41 @@ def actualizar_item(db: Session, item_id: int, quantity: float) -> CartItem | No
 def resumen_carrito(db: Session, cart_id: int) -> dict | None:
     cart = db.query(Cart).filter(Cart.id == cart_id).first()
     if not cart:
-        return None
+        raise HTTPException(status_code=404, detail="Carrito no encontrado")
+    
     total = sum(i.subtotal for i in cart.items)
-    return {"cart": cart, "total": float(total)}
+    return {"cart": cart, "total": total}
 
 def eliminar_item_carrito(db: Session, cart_id: int, item_id: int):
-    item = db.query(CartItem).filter(CartItem.cart_id == cart_id, CartItem.id == item_id).first()
+    item = db.query(CartItem).filter(
+        CartItem.cart_id == cart_id, 
+        CartItem.id == item_id
+    ).first()
     if not item:
-        return None, "Item no encontrado"
+        raise HTTPException(status_code=404, detail="Item no encontrado")
+    
     db.delete(item)
     db.commit()
-    return True, None
+    return {"message": "Item eliminado"}
 
 def vaciar_carrito(db: Session, cart_id: int):
     items = db.query(CartItem).filter(CartItem.cart_id == cart_id).all()
     for item in items:
         db.delete(item)
     db.commit()
-    return True
+    return {"message": "Carrito vaciado"}
 
 def cambiar_estado_carrito(db: Session, cart_id: int, new_status: str):
     cart = db.query(Cart).filter(Cart.id == cart_id).first()
     if not cart:
-        return None, "Carrito no encontrado"
+        raise HTTPException(status_code=404, detail="Carrito no encontrado")
+    
     cart.status = new_status
+    if new_status == "completed":
+        cart.completed_at = datetime.utcnow()
     db.commit()
     db.refresh(cart)
-    return cart, None
+    return cart
 
 def actualizar_cantidad_item(db: Session, cart_id: int, item_id: int, new_qty: int):
     item = db.query(CartItem).filter(CartItem.cart_id == cart_id, CartItem.id == item_id).first()

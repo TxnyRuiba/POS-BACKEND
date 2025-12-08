@@ -14,23 +14,35 @@ from routes.prices import router as price_router
 # Crear tablas si no existen
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI()
-app.include_router(inventory_router)
-app.include_router(price_router)
+app = FastAPI(
+    title="API POS",
+    description="Sistema de Punto de Venta con autenticación JWT",
+    version="2.0.0"
+)
 
+# CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["http://localhost:3000"],  # ✅ Especifica tu frontend
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# ------------------ Endpoints ------------------
+# Routers
+app.include_router(usuarios_router)
+app.include_router(inventory_router)
+app.include_router(carritos_router)
+app.include_router(price_router)
+
 @app.get("/")
 def read_root():
-    return {"message": "API funcionando correctamente"}
+    return {
+        "message": "API POS v2.0 - Sistema con autenticación JWT",
+        "docs": "/docs",
+        "health": "OK"
+    }
 
-app.include_router(usuarios_router)
-app.include_router(carritos_router)
-app.include_router(inventory_router)
+@app.get("/health")
+def health_check():
+    return {"status": "healthy", "database": "connected"}

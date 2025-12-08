@@ -1,5 +1,6 @@
+from decimal import Decimal
 from datetime import datetime
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, field_validator
 
 class LoginRequest(BaseModel):
     username: str = Field(..., alias="Username")
@@ -31,11 +32,18 @@ class ProductoCreate(BaseModel):
     product: str = Field(..., alias="Product")
     category: str = Field(..., alias="Category")
     units: str = Field(..., alias="Units")
-    price: float = Field(..., alias="Price")
+    price: Decimal = Field(..., alias="Price")
     stock: float | int = Field(..., alias="Stock")
     min_stock: float | int = Field(..., alias="Min_Stock")
 
     model_config = ConfigDict(populate_by_name=True)
+
+    @field_validator('price')
+    @classmethod
+    def validate_price(cls, v):
+        if v < 0:
+            raise ValueError('El precio no puede ser negativo')
+        return round(v, 2)
 
 class ProductoSchema(BaseModel):
     Id: int = Field(..., alias="Id")
@@ -44,7 +52,7 @@ class ProductoSchema(BaseModel):
     Product: str = Field(..., alias="Product")
     Category: str = Field(..., alias="Category")
     Units: str = Field(..., alias="Units")
-    Price: float = Field(..., alias="Price")
+    Price: Decimal = Field(..., alias="Price")
     Stock: float | int = Field(..., alias="Stock")
     Min_Stock: float | int = Field(..., alias="Min_Stock")
     Activo: int = Field(..., alias="Activo")
@@ -58,6 +66,7 @@ class ProductoUpdate(BaseModel):
     stock: float | int | None = Field(None, alias="Stock")
     min_stock: float | int | None = Field(None, alias="Min_Stock")
     model_config = ConfigDict(populate_by_name=True)
+    Activo: int = Field(..., alias="Activo")
 
 #Carrito
 
@@ -75,9 +84,9 @@ class CartItemSchema(BaseModel):
     id: int
     product_id: int
     product_name: str
-    price: float
-    quantity: float
-    subtotal: float
+    price: Decimal
+    quantity: Decimal
+    subtotal: Decimal
 
     class Config:
         from_attributes = True
@@ -105,13 +114,13 @@ class CartUpdateQuantity(BaseModel):
 
 #Precios
 class PrecioUpdate(BaseModel):
-    price: float = Field(..., alias="Price")
+    price: Decimal = Field(..., alias="Price")
     reason: str | None = Field(None, alias="Reason")
     model_config = ConfigDict(populate_by_name=True)
 
 class PrecioBulkItem(BaseModel):
     id: int = Field(..., alias="Id")
-    price: float = Field(..., alias="Price")
+    price: Decimal = Field(..., alias="Price")
     reason: str | None = Field(None, alias="Reason")
     model_config = ConfigDict(populate_by_name=True)
 
@@ -123,15 +132,51 @@ class ProductoPrecioSchema(BaseModel):
     Id: int
     Code: int
     Product: str
-    Price: float
+    Price: Decimal
     Activo: int
     model_config = ConfigDict(from_attributes=True)
 
 class PriceHistorySchema(BaseModel):
     id: int
     product_id: int
-    old_price: float
-    new_price: float
+    old_price: Decimal
+    new_price: Decimal
     reason: str | None
     changed_at: datetime
     model_config = ConfigDict(from_attributes=True)
+
+  # NUEVO: Schemas para Tickets
+class CreateTicketRequest(BaseModel):
+    cart_id: int = Field(..., alias="CartId")
+    payment_method: str = Field(..., alias="PaymentMethod")  # cash, card, transfer
+    payment_reference: str | None = Field(None, alias="PaymentReference")
+    tax: Decimal = Field(default=Decimal('0.00'), alias="Tax")
+    discount: Decimal = Field(default=Decimal('0.00'), alias="Discount")
+    
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class SaleTicketItemSchema(BaseModel):
+    product_code: str
+    product_name: str
+    unit_price: Decimal
+    quantity: Decimal
+    subtotal: Decimal
+    
+    model_config = ConfigDict(from_attributes=True)
+
+
+class SaleTicketSchema(BaseModel):
+    id: int
+    ticket_number: str
+    subtotal: Decimal
+    tax: Decimal
+    discount: Decimal
+    total: Decimal
+    payment_method: str
+    status: str
+    created_at: datetime
+    items: list[SaleTicketItemSchema] = []
+    
+    model_config = ConfigDict(from_attributes=True)
+     
