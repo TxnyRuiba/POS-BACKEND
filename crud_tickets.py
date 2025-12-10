@@ -210,6 +210,7 @@ def actualizar_caja_con_venta(
     
     if payment_method == "cash":
         caja.total_cash += total
+        caja.current_cash += total  
     elif payment_method == "card":
         caja.total_card += total
     elif payment_method == "transfer":

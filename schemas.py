@@ -71,6 +71,7 @@ class ProductoUpdate(BaseModel):
     stock: int | None = Field(None, alias="Stock")
     min_stock: int | None = Field(None, alias="Min_Stock")
     model_config = ConfigDict(populate_by_name=True)
+    Activo: int = Field(..., alias="Activo")
 
 
 # ==================== CARRITO ====================
@@ -262,3 +263,54 @@ class CashRegisterSummary(BaseModel):
     total_transfer: Decimal
     num_transactions: int
     difference: Decimal | None
+    
+# ==================== RETIROS DE EFECTIVO ====================
+class CreateWithdrawalRequest(BaseModel):
+    amount: Decimal = Field(..., alias="Amount", gt=0)
+    reason: str = Field(..., alias="Reason")
+    notes: str | None = Field(None, alias="Notes")
+    
+    model_config = ConfigDict(populate_by_name=True)
+    
+    @field_validator('reason')
+    @classmethod
+    def validate_reason(cls, v):
+        allowed = ['security_limit', 'end_of_shift', 'deposit', 'other']
+        if v not in allowed:
+            raise ValueError(f'Razón debe ser: {", ".join(allowed)}')
+        return v
+    
+    @field_validator('amount')
+    @classmethod
+    def validate_amount(cls, v):
+        if v <= 0:
+            raise ValueError('El monto debe ser mayor a 0')
+        if v > 50000:
+            raise ValueError('El monto máximo por retiro es $50,000')
+        return v
+
+
+class CashWithdrawalSchema(BaseModel):
+    id: int
+    cash_register_id: int
+    user_id: int
+    amount: Decimal
+    reason: str
+    notes: str | None
+    cash_before: Decimal
+    cash_after: Decimal
+    status: str
+    created_at: datetime
+    user_name: str | None = None
+    approver_name: str | None = None
+    
+    model_config = ConfigDict(from_attributes=True)
+
+
+class CashLimitAlert(BaseModel):
+    cash_register_id: int
+    current_cash: Decimal
+    cash_limit: Decimal
+    excess: Decimal
+    alert_level: str  # "warning", "critical"
+    message: str

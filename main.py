@@ -11,6 +11,7 @@ from routes.cart import router as carritos_router
 from routes.prices import router as price_router
 from routes.tickets import router as tickets_router
 from routes.cash_register import router as cash_register_router
+from routes.withdrawals import router as withdrawals_router
 
 # Crear tablas
 Base.metadata.create_all(bind=engine)
@@ -37,6 +38,7 @@ app.include_router(carritos_router)
 app.include_router(price_router)
 app.include_router(tickets_router)
 app.include_router(cash_register_router)
+app.include_router(withdrawals_router)
 
 @app.get("/")
 def read_root():

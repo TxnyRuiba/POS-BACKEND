@@ -26,10 +26,12 @@ def abrir_caja(db: Session, user_id: int, data: OpenCashRegisterRequest) -> Cash
         user_id=user_id,
         opened_at=datetime.utcnow(),
         initial_cash=data.initial_cash,
+        current_cash=data.initial_cash,
         total_sales=Decimal('0.00'),
         total_cash=Decimal('0.00'),
         total_card=Decimal('0.00'),
         total_transfer=Decimal('0.00'),
+        total_withdrawals=Decimal('0.00'),
         num_transactions=0,
         status="open",
         notes=data.notes

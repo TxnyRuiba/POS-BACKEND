@@ -71,13 +71,81 @@ class PriceHistory(Base):
     product = relationship("Product")
 
 
+class CashRegister(Base):
+    __tablename__ = "cash_register"
+
+    id = Column(BigInteger, primary_key=True, index=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("Users.ID"), nullable=False)
+    opened_at = Column(DateTime, default=datetime.utcnow)
+    closed_at = Column(DateTime, nullable=True)
+    
+    initial_cash = Column(NUMERIC(10, 2), default=Decimal('0.00'))
+    final_cash = Column(NUMERIC(10, 2), nullable=True)
+    expected_cash = Column(NUMERIC(10, 2), nullable=True)
+    difference = Column(NUMERIC(10, 2), nullable=True)
+    
+    total_sales = Column(NUMERIC(10, 2), default=Decimal('0.00'))
+    total_cash = Column(NUMERIC(10, 2), default=Decimal('0.00'))
+    total_card = Column(NUMERIC(10, 2), default=Decimal('0.00'))
+    total_transfer = Column(NUMERIC(10, 2), default=Decimal('0.00'))
+    
+    total_withdrawals = Column(NUMERIC(10, 2), default=Decimal('0.00'))
+    current_cash = Column(NUMERIC(10, 2), default=Decimal('0.00'))
+    cash_limit = Column(NUMERIC(10, 2), default=Decimal('5000.00'))
+    
+    num_transactions = Column(Integer, default=0)
+    status = Column(String, default="open")
+    notes = Column(Text, nullable=True)
+    
+    user = relationship("Users")
+    tickets = relationship("SaleTicket", back_populates="cash_register", foreign_keys="[SaleTicket.cash_register_id]")
+    withdrawals = relationship("CashWithdrawal", back_populates="cash_register", cascade="all, delete-orphan")
+    
+    __table_args__ = (
+        Index('idx_register_date', 'opened_at'),
+        Index('idx_register_user', 'user_id'),
+        Index('idx_register_status', 'status'),
+    )
+
+
+class CashWithdrawal(Base):
+    __tablename__ = "cash_withdrawals"
+    
+    id = Column(BigInteger, primary_key=True, index=True, autoincrement=True)
+    cash_register_id = Column(BigInteger, ForeignKey("cash_register.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("Users.ID"), nullable=False)
+    
+    amount = Column(NUMERIC(10, 2), nullable=False)
+    reason = Column(String, nullable=False)
+    notes = Column(Text, nullable=True)
+    
+    cash_before = Column(NUMERIC(10, 2), nullable=False)
+    cash_after = Column(NUMERIC(10, 2), nullable=False)
+    
+    status = Column(String, default="completed")
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    approved_by = Column(Integer, ForeignKey("Users.ID"), nullable=True)
+    approved_at = Column(DateTime, nullable=True)
+    
+    cash_register = relationship("CashRegister", back_populates="withdrawals")
+    user = relationship("Users", foreign_keys=[user_id])
+    approver = relationship("Users", foreign_keys=[approved_by])
+    
+    __table_args__ = (
+        Index('idx_withdrawal_date', 'created_at'),
+        Index('idx_withdrawal_register', 'cash_register_id'),
+        Index('idx_withdrawal_user', 'user_id'),
+    )
+
+
 class SaleTicket(Base):
     __tablename__ = "sale_tickets"
     
     id = Column(BigInteger, primary_key=True, index=True, autoincrement=True)
     ticket_number = Column(String, unique=True, nullable=False, index=True)
     cart_id = Column(BigInteger, ForeignKey("cart.id"), nullable=False)
-    cash_register_id = Column(BigInteger, ForeignKey("cash_register.id"), nullable=True)  # ← AÑADIDO
+    cash_register_id = Column(BigInteger, ForeignKey("cash_register.id"), nullable=True)
     user_id = Column(Integer, ForeignKey("Users.ID"), nullable=False)
     
     subtotal = Column(NUMERIC(10, 2), nullable=False)
@@ -96,11 +164,10 @@ class SaleTicket(Base):
     cancelled_by = Column(Integer, ForeignKey("Users.ID"), nullable=True)
     cancellation_reason = Column(Text, nullable=True)
 
-    # Relaciones
     cart = relationship("Cart", foreign_keys=[cart_id])
     cashier = relationship("Users", foreign_keys=[user_id])
     cancelled_by_user = relationship("Users", foreign_keys=[cancelled_by])
-    cash_register = relationship("CashRegister", foreign_keys=[cash_register_id], back_populates="tickets")  # ← CORREGIDO
+    cash_register = relationship("CashRegister", foreign_keys=[cash_register_id], back_populates="tickets")
     items = relationship("SaleTicketItem", back_populates="ticket", cascade="all, delete-orphan")
     
     __table_args__ = (
@@ -122,35 +189,3 @@ class SaleTicketItem(Base):
     quantity = Column(NUMERIC(10, 3), nullable=False)
     subtotal = Column(NUMERIC(10, 2), nullable=False)
     ticket = relationship("SaleTicket", back_populates="items")
-
-
-class CashRegister(Base):
-    __tablename__ = "cash_register"
-
-    id = Column(BigInteger, primary_key=True, index=True, autoincrement=True)
-    user_id = Column(Integer, ForeignKey("Users.ID"), nullable=False)
-    opened_at = Column(DateTime, default=datetime.utcnow)
-    closed_at = Column(DateTime, nullable=True)
-    
-    initial_cash = Column(NUMERIC(10, 2), default=Decimal('0.00'))
-    final_cash = Column(NUMERIC(10, 2), nullable=True)
-    expected_cash = Column(NUMERIC(10, 2), nullable=True)
-    difference = Column(NUMERIC(10, 2), nullable=True)
-    
-    total_sales = Column(NUMERIC(10, 2), default=Decimal('0.00'))
-    total_cash = Column(NUMERIC(10, 2), default=Decimal('0.00'))
-    total_card = Column(NUMERIC(10, 2), default=Decimal('0.00'))
-    total_transfer = Column(NUMERIC(10, 2), default=Decimal('0.00'))
-    
-    num_transactions = Column(Integer, default=0)
-    status = Column(String, default="open")
-    notes = Column(Text, nullable=True)
-    
-    user = relationship("Users")
-    tickets = relationship("SaleTicket", back_populates="cash_register", foreign_keys="[SaleTicket.cash_register_id]")  # ← CORREGIDO
-    
-    __table_args__ = (
-        Index('idx_register_date', 'opened_at'),
-        Index('idx_register_user', 'user_id'),
-        Index('idx_register_status', 'status'),
-    )
