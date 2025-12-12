@@ -23,8 +23,8 @@ class Product(Base):
     Category = Column(String, nullable=False)
     Units = Column(String, nullable=False)
     Price = Column(NUMERIC(10, 2), nullable=False)
-    Stock = Column(Integer, nullable=False)
-    Min_Stock = Column(Integer, nullable=False)
+    Stock = Column(NUMERIC(10, 4), nullable=False) 
+    Min_Stock = Column(NUMERIC(10, 4), nullable=False)
     Activo = Column(Integer, default=1)
     
     __table_args__ = (
@@ -40,7 +40,9 @@ class Cart(Base):
     user_id = Column(Integer, ForeignKey("Users.ID"), nullable=True)
     status = Column(Text, default="open")
     created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow) # Actualización general
     completed_at = Column(DateTime, nullable=True)
+    cancelled_at = Column(DateTime, nullable=True)
     items = relationship("CartItem", back_populates="cart", cascade="all, delete-orphan")
     user = relationship("Users", foreign_keys=[user_id])
 
@@ -53,8 +55,9 @@ class CartItem(Base):
     product_id = Column(BigInteger, ForeignKey("Master_Data.Id"), nullable=False)
     product_name = Column(Text, nullable=False)
     price = Column(NUMERIC(10, 2), nullable=False)
-    quantity = Column(NUMERIC(10, 3), nullable=False)
+    quantity = Column(NUMERIC(10, 4), nullable=False)
     subtotal = Column(NUMERIC(10, 2), nullable=False)
+    
     cart = relationship("Cart", back_populates="items")
     product = relationship("Product")
 
@@ -186,6 +189,6 @@ class SaleTicketItem(Base):
     product_code = Column(String, nullable=False)
     product_name = Column(Text, nullable=False)
     unit_price = Column(NUMERIC(10, 2), nullable=False)
-    quantity = Column(NUMERIC(10, 3), nullable=False)
+    quantity = Column(NUMERIC(10, 4), nullable=False)
     subtotal = Column(NUMERIC(10, 2), nullable=False)
     ticket = relationship("SaleTicket", back_populates="items")

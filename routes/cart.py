@@ -1,5 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
+from typing import Optional, List
+from datetime import datetime
 from database import get_db
 from schemas import CartSchema, CartItemSchema, AddItemRequest
 from crud import crear_carrito, obtener_carrito, buscar_producto, agregar_item
@@ -10,7 +12,7 @@ from database import get_db
 from schemas import CartSchema, CartUpdateStatus, CartUpdateQuantity
 from crud import (
     eliminar_item_carrito, vaciar_carrito, cambiar_estado_carrito,
-    actualizar_cantidad_item, calcular_total_carrito
+    actualizar_cantidad_item, calcular_total_carrito, buscar_carritos_avanzado
 )
 
 
@@ -50,10 +52,15 @@ def obtener_carrito_endpoint(cart_id: int, db: Session = Depends(get_db)):
 # Eliminar producto del carrito
 @router.delete("/{cart_id}/items/{item_id}")
 def eliminar_item(cart_id: int, item_id: int, db: Session = Depends(get_db)):
-    ok, error = eliminar_item_carrito(db, cart_id, item_id)
-    if error:
-        raise HTTPException(status_code=404, detail=error)
-    return {"success": ok}
+    try:
+        resultado = eliminar_item_carrito(db, cart_id, item_id)
+        if not resultado:
+            raise HTTPException(status_code=404, detail="Item no encontrado o no se pudo eliminar")
+        return {"success": True, "message": "Item eliminado correctamente"}
+    
+    except Exception as e:
+        # Captura errores genéricos o específicos del CRUD
+        raise HTTPException(status_code=400, detail=str(e))
 
 # Vaciar carrito completo
 @router.delete("/{cart_id}/items")
@@ -75,7 +82,7 @@ def actualizar_cantidad(cart_id: int, item_id: int, data: CartUpdateQuantity, db
     item, error = actualizar_cantidad_item(db, cart_id, item_id, data.quantity)
     if error:
         raise HTTPException(status_code=400, detail=error)
-    cart = db.query(Cart).filter(Cart.id == cart_id).first()
+    cart = obtener_carrito(db, cart_id)
     return cart
 
 # Calcular total del carrito
@@ -83,3 +90,31 @@ def actualizar_cantidad(cart_id: int, item_id: int, data: CartUpdateQuantity, db
 def total_carrito(cart_id: int, db: Session = Depends(get_db)):
     total = calcular_total_carrito(db, cart_id)
     return {"Cart_Id": cart_id, "Total": total}
+
+#Nuevo Endpoint de Búsqueda
+@router.get("/search", response_model=List[CartSchema])
+def buscar_carritos(
+    start_date: Optional[datetime] = None,
+    end_date: Optional[datetime] = None,
+    min_amount: Optional[float] = None,
+    status: Optional[str] = None,
+    product_name: Optional[str] = Query(None, description="Nombre del item vendido"),
+    db: Session = Depends(get_db)
+):
+    """
+    Busca carritos por rango de fecha, estado, monto mínimo o producto contenido.
+    """
+    carritos = buscar_carritos_avanzado(
+        db, 
+        fecha_inicio=start_date, 
+        fecha_fin=end_date, 
+        min_total=min_amount, 
+        status=status,
+        item_name=product_name
+    )
+    
+    if not carritos:
+        return []
+        
+    # Convertir a esquema (o usar lista directa si Pydantic lo maneja)
+    return carritos

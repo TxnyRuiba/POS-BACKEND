@@ -1,7 +1,8 @@
 import bcrypt
+from sqlalchemy import or_, and_
 from decimal import Decimal
 from sqlalchemy.exc import IntegrityError 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import cast, String, Index
 from models import Product, Cart, CartItem, Users, PriceHistory
 from schemas import ProductoCreate, ProductoUpdate
@@ -224,21 +225,28 @@ def vaciar_carrito(db: Session, cart_id: int):
 def cambiar_estado_carrito(db: Session, cart_id: int, new_status: str):
     cart = db.query(Cart).filter(Cart.id == cart_id).first()
     if not cart:
-        raise HTTPException(status_code=404, detail="Carrito no encontrado")
+        return None, "Carrito no encontrado"
     
     cart.status = new_status
+    now = datetime.utcnow()
+
     if new_status == "completed":
         cart.completed_at = datetime.utcnow()
+    elif new_status == "cancelled":
+        cart.cancelled_at = now
+    
+    cart.updated_at = now
+    
     db.commit()
     db.refresh(cart)
-    return cart
+    return cart, None
 
 def actualizar_cantidad_item(db: Session, cart_id: int, item_id: int, new_qty: int):
     item = db.query(CartItem).filter(CartItem.cart_id == cart_id, CartItem.id == item_id).first()
     if not item:
-        return None, "Item no encontrado"
-    if new_qty <= 0:
-        return None, "Cantidad inválida"
+        return None, "Item no encontrado en el carrito"
+    if item.product.Stock < new_qty:
+         return None, f"Stock insuficiente. Disponible: {item.product.Stock}"
     item.quantity = new_qty
     db.commit()
     db.refresh(item)
@@ -248,6 +256,30 @@ def calcular_total_carrito(db: Session, cart_id: int):
     items = db.query(CartItem).filter(CartItem.cart_id == cart_id).all()
     total = sum(i.price * i.quantity for i in items)
     return total
+
+# NUEVA FUNCIÓN PARA PUNTO 5: Búsqueda avanzada
+def buscar_carritos_avanzado(db: Session, fecha_inicio: datetime = None, fecha_fin: datetime = None, min_total: float = None, status: str = None, item_name: str = None):
+    query = db.query(Cart).options(joinedload(Cart.items).joinedload(CartItem.product))
+    
+    if fecha_inicio:
+        query = query.filter(Cart.created_at >= fecha_inicio)
+    if fecha_fin:
+        query = query.filter(Cart.created_at <= fecha_fin)
+    if status:
+        query = query.filter(Cart.status == status)
+        
+    # Filtro por nombre de producto dentro del carrito
+    if item_name:
+        query = query.join(Cart.items).join(CartItem.product).filter(Product.Product.ilike(f"%{item_name}%"))
+    
+    carts = query.all()
+    
+    # Filtro por total (calculado, ya que el total a veces no se guarda en la tabla Cart hasta cerrar)
+    # Si tienes una columna 'total' en Cart, úsala en el query. Si no, filtra en Python:
+    if min_total is not None:
+        carts = [c for c in carts if sum(i.quantity * i.price_at_add for i in c.items) >= min_total]
+        
+    return carts
 
 
 #Precios
