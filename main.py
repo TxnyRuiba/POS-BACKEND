@@ -1,8 +1,10 @@
 import schemas
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from database import engine
 from models import Base
+from fastapi.responses import JSONResponse
+
 
 # Importar routers
 from routes.inventory import router as inventory_router
@@ -12,6 +14,7 @@ from routes.prices import router as price_router
 from routes.tickets import router as tickets_router
 from routes.cash_register import router as cash_register_router
 from routes.withdrawals import router as withdrawals_router
+from app.core.exceptions import AppException
 
 # Crear tablas
 Base.metadata.create_all(bind=engine)
@@ -45,6 +48,19 @@ app.include_router(price_router)
 app.include_router(tickets_router)
 app.include_router(cash_register_router)
 app.include_router(withdrawals_router)
+
+@app.exception_handler(AppException)
+async def app_exception_handler(request: Request, exc: AppException):
+    """Manejador global para excepciones personalizadas"""
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "success": False,
+            "error": exc.message,
+            "type": exc.__class__.__name__,
+            "path": str(request.url)
+        }
+    )
 
 @app.get("/")
 def read_root():

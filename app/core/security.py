@@ -7,7 +7,13 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from database import get_db
 from models import Users
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 import os
+
+limiter = Limiter(key_func=get_remote_address)
+
+PEPPER = os.getenv("PASSWORD_PEPPER", "default-pepper-change-in-prod")
 
 # Configuración
 SECRET_KEY = os.getenv("SECRET_KEY")
@@ -23,17 +29,16 @@ from passlib.context import CryptContext
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 def hash_password(password: str) -> str:
-    # Validar longitud antes de hashear
     if len(password.encode("utf-8")) > 72:
         raise ValueError("La contraseña no puede superar los 72 caracteres.")
-    return pwd_context.hash(password)
+    
+    # Agregar pepper antes de hashear
+    peppered = f"{password}{PEPPER}"
+    return pwd_context.hash(peppered)
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return pwd_context.verify(plain_password, hashed_password)
-
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """Verifica una contraseña contra su hash"""
-    return pwd_context.verify(plain_password, hashed_password)
+    peppered = f"{plain_password}{PEPPER}"
+    return pwd_context.verify(peppered, hashed_password)
 
 # ------------------ JWT Tokens ------------------
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):

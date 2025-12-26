@@ -10,6 +10,7 @@ from fastapi import HTTPException
 from datetime import datetime
 from pydantic import BaseModel, Field, ConfigDict
 from app.core.security import hash_password, verify_password
+from app.core.exceptions import NotFoundError
 
 # ------------------ Usuarios ------------------
 def get_user_by_username(db: Session, username: str) -> Users | None:
@@ -57,11 +58,18 @@ def obtener_productos(db: Session, skip: int = 0, limit: int = 100) -> list[Prod
     return db.query(Product).filter(Product.Activo == 1).offset(skip).limit(limit).all()
 
 def buscar_productos(db: Session, query: str) -> list[Product]:
-    safe_query = query.strip()
+    # Validar longitud
+    if len(query) > 100:
+        raise ValueError("Query demasiado largo")
+    
+    # SQLAlchemy escapa automáticamente los parámetros
+    search_pattern = f"%{query}%"
     return db.query(Product).filter(
-        (Product.Product.ilike(f"%{safe_query}%")) |
-        (cast(Product.Code, String).ilike(f"%{safe_query}%")) |
-        (cast(Product.Barcode, String).ilike(f"%{safe_query}%"))
+        or_(
+            Product.Product.ilike(search_pattern),
+            cast(Product.Code, String).ilike(search_pattern),
+            cast(Product.Barcode, String).ilike(search_pattern)
+        )
     ).limit(100).all()
 
 def crear_producto(db: Session, producto: ProductoCreate) -> Product:
@@ -195,10 +203,13 @@ def actualizar_item(db: Session, item_id: int, quantity: Decimal) -> CartItem | 
     db.refresh(item)
     return item
 
-def resumen_carrito(db: Session, cart_id: int) -> dict | None:
-    cart = db.query(Cart).filter(Cart.id == cart_id).first()
+def resumen_carrito(db: Session, cart_id: int):
+    cart = db.query(Cart).options(
+        joinedload(Cart.items).joinedload(CartItem.product)
+    ).filter(Cart.id == cart_id).first()
+    
     if not cart:
-        raise HTTPException(status_code=404, detail="Carrito no encontrado")
+        raise NotFoundError("Carrito", cart_id)
     
     total = sum(i.subtotal for i in cart.items)
     return {"cart": cart, "total": total}
